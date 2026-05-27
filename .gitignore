@@ -23,6 +23,12 @@ uploads/
 *.sln
 *.sw?
 
+# Ignore redundant SQL subfolders in code directory
+code/code_demo/
+code/code_no_comments/
+code/codechuong3/
+code/test/
+
 # system files
 .DS_Store
 Thumbs.db

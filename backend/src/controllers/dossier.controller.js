@@ -2,6 +2,21 @@ const db = require('../config/db');
 const fs = require('fs');
 const path = require('path');
 
+// Setup optional Cloudinary storage for persistent free uploads
+let cloudinary;
+if (process.env.CLOUDINARY_CLOUD_NAME) {
+  try {
+    cloudinary = require('cloudinary').v2;
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET
+    });
+  } catch (err) {
+    console.warn('Cloudinary package not installed. Run "npm install cloudinary" to use Cloudinary.');
+  }
+}
+
 async function getDossiers(req, res, next) {
   try {
     let query = 'SELECT * FROM v_dossier_detail';
@@ -250,6 +265,32 @@ async function uploadAttachment(req, res, next) {
       return res.status(400).json({ success: false, message: 'File name and file data are required' });
     }
 
+    // If Cloudinary is configured, upload to Cloudinary instead
+    if (cloudinary && process.env.CLOUDINARY_CLOUD_NAME) {
+      let uploadStr = fileData;
+      if (!fileData.startsWith('data:')) {
+        const ext = path.extname(fileName).toLowerCase();
+        let mimeType = 'application/pdf';
+        if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
+          mimeType = `image/${ext.replace('.', '') === 'jpg' ? 'jpeg' : ext.replace('.', '')}`;
+        }
+        uploadStr = `data:${mimeType};base64,${fileData}`;
+      }
+
+      const uploadResponse = await cloudinary.uploader.upload(uploadStr, {
+        folder: 'social_welfare_attachments',
+        resource_type: 'auto',
+        public_id: `${Date.now()}-${path.basename(fileName, path.extname(fileName)).replace(/[^a-zA-Z0-9]/g, '_')}`
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: 'File uploaded successfully to Cloudinary',
+        fileName: fileName,
+        fileUrl: uploadResponse.secure_url
+      });
+    }
+
     // Ensure uploads directory exists
     const uploadDir = path.join(__dirname, '..', '..', 'uploads');
     if (!fs.existsSync(uploadDir)) {
@@ -273,8 +314,8 @@ async function uploadAttachment(req, res, next) {
     // Save file
     fs.writeFileSync(filePath, buffer);
 
-    // Form static URL (our server serves static files from /uploads)
-    const fileUrl = `http://localhost:3001/uploads/${uniqueFileName}`;
+    // Form static URL dynamically based on request host
+    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${uniqueFileName}`;
 
     res.status(201).json({
       success: true,

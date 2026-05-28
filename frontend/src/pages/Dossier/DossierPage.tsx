@@ -16,6 +16,10 @@ import {
   Trash2
 } from 'lucide-react';
 
+const BACKEND_URL = import.meta.env.VITE_API_URL 
+  ? import.meta.env.VITE_API_URL.replace(/\/api$/, '') 
+  : 'http://localhost:3001';
+
 export const DossierPage: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'create' | 'attachments' | 'templates'>('create');
@@ -501,7 +505,7 @@ export const DossierPage: React.FC = () => {
                       <p className="text-[10px] text-slate-400">{t.size} • Định dạng: <span className="font-bold text-slate-500">{t.ext}</span></p>
                     </div>
                     <a
-                      href={`http://localhost:3001/uploads/templates/${t.file}`}
+                      href={`${BACKEND_URL}/uploads/templates/${t.file}`}
                       download
                       target="_blank"
                       rel="noreferrer"
